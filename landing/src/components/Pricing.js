@@ -3,13 +3,13 @@ import { useEffect, useRef } from 'react'
 import { useLanguage } from '../context/LanguageContext'
 
 const APP_URL    = process.env.NEXT_PUBLIC_APP_URL || 'https://app.dukaos.co.tz'
-const WA_CONTACT = 'https://wa.me/255000000000?text=Nataka%20kupata%20maelezo%20ya%20DukaOS%20Enterprise'
+const WA_CONTACT = 'https://wa.me/255740616905?text=Nataka%20kupata%20maelezo%20ya%20DukaOS%20Enterprise'
 
 const t = {
   sw: {
     badge:      'Bei Wazi',
     title:      'Chagua Mpango Unaokufaa',
-    subtitle:   'Vifurushi vinne kwa biashara zote — kuanzia biashara ndogo hadi kubwa na matawi mengi.',
+    subtitle:   'Vifurushi vitatu kwa biashara zote — kuanzia biashara ndogo hadi kubwa na matawi mengi.',
     setup:      'Ada ya Kuanzisha',
     monthly:    'kwa mwezi',
     popular:    'Inayopendelewa',
@@ -25,32 +25,26 @@ const t = {
     plans: [
       {
         key: 'starter', name: 'Starter', color: '#1A7A42',
-        setup: 'TZS 100,000', monthly: 'TZS 25,000',
-        features: ['POS ya kisasa', 'Usimamizi wa bidhaa', 'Usimamizi wa stok', 'Dashibodi ya wakati halisi', 'Ripoti za mauzo'],
+        setup: 'TZS 50,000', monthly: 'TZS 15,000',
+        features: ['POS ya kisasa', 'Usimamizi wa bidhaa', 'Usimamizi wa stok', 'Dashibodi ya wakati halisi', 'Ripoti za mauzo', 'Usimamizi wa wateja', 'Arifa za WhatsApp'],
       },
       {
         key: 'business', name: 'Business', color: '#0B5C2E', popular: true,
-        setup: 'TZS 250,000', monthly: 'TZS 60,000',
+        setup: 'TZS 150,000', monthly: 'TZS 45,000',
         parent: 'Starter',
-        features: ['Usimamizi wa wafanyakazi', 'Barcode Scanner', 'Kuingiza kwa wingi (Bulk Import)', 'Usimamizi wa wasambazaji', 'Usimamizi wa manunuzi', 'Ufuatiliaji wa matumizi', 'Ripoti za faida'],
-      },
-      {
-        key: 'pro', name: 'Pro', color: '#7C3AED',
-        setup: 'TZS 500,000', monthly: 'TZS 120,000',
-        parent: 'Business',
-        features: ['AI Business Insights', 'Watumiaji wengi (Multi User)', 'Arifa za WhatsApp', 'Ripoti za PDF', 'Cloud Backup', 'Msaada wa kipaumbele'],
+        features: ['Usimamizi wa wafanyakazi', 'Barcode Scanner', 'Kuingiza kwa wingi (Bulk Import)', 'Usimamizi wa wasambazaji', 'Usimamizi wa manunuzi', 'Ufuatiliaji wa matumizi', 'Ripoti za faida za kina', 'VFD/EFD (TRA)', 'Arifa za SMS'],
       },
       {
         key: 'enterprise', name: 'Enterprise', color: '#0369A1', custom: true,
-        setup: 'Bei ya makubaliano', monthly: 'TZS 250,000+',
-        features: ['Matawi mengi (Multi Branch)', 'API Access', 'Uunganisho wa ziada', 'Msaada maalum', 'Vipengele vya ziada', 'Enterprise Deployment'],
+        setup: 'Bei ya makubaliano', monthly: 'TZS 120,000+',
+        features: ['Matawi mengi (Multi Branch)', 'AI Business Insights', 'API Access', 'Msaada wa kipaumbele (24/7)', 'Uunganisho maalum', 'Branding ya biashara yako', 'Meneja maalum', 'Enterprise Deployment'],
       },
     ],
   },
   en: {
     badge:      'Clear Pricing',
     title:      'Choose Your Plan',
-    subtitle:   'Four plans for every business — from small shops to large enterprises with multiple branches.',
+    subtitle:   'Three plans for every business — from small shops to large enterprises with multiple branches.',
     setup:      'Setup Fee',
     monthly:    'per month',
     popular:    'Most Popular',
@@ -66,25 +60,19 @@ const t = {
     plans: [
       {
         key: 'starter', name: 'Starter', color: '#1A7A42',
-        setup: 'TZS 100,000', monthly: 'TZS 25,000',
-        features: ['Modern POS', 'Product Management', 'Stock Management', 'Real-Time Dashboard', 'Sales Reports'],
+        setup: 'TZS 50,000', monthly: 'TZS 15,000',
+        features: ['Modern POS', 'Product Management', 'Stock Management', 'Real-Time Dashboard', 'Sales Reports', 'Customer Management', 'WhatsApp Alerts'],
       },
       {
         key: 'business', name: 'Business', color: '#0B5C2E', popular: true,
-        setup: 'TZS 250,000', monthly: 'TZS 60,000',
+        setup: 'TZS 150,000', monthly: 'TZS 45,000',
         parent: 'Starter',
-        features: ['Staff Management', 'Barcode Scanner', 'Bulk Product Import', 'Supplier Management', 'Purchase Management', 'Expense Tracking', 'Profit Reports'],
-      },
-      {
-        key: 'pro', name: 'Pro', color: '#7C3AED',
-        setup: 'TZS 500,000', monthly: 'TZS 120,000',
-        parent: 'Business',
-        features: ['AI Business Insights', 'Multi User Access', 'WhatsApp Alerts', 'PDF Reports', 'Cloud Backup', 'Priority Support'],
+        features: ['Staff Management', 'Barcode Scanner', 'Bulk Product Import', 'Supplier Management', 'Purchase Management', 'Expense Tracking', 'Advanced Profit Reports', 'VFD/EFD (TRA)', 'SMS Alerts'],
       },
       {
         key: 'enterprise', name: 'Enterprise', color: '#0369A1', custom: true,
-        setup: 'Custom pricing', monthly: 'TZS 250,000+',
-        features: ['Multi Branch', 'API Access', 'Advanced Integrations', 'Dedicated Support', 'Custom Features', 'Enterprise Deployment'],
+        setup: 'Custom pricing', monthly: 'TZS 120,000+',
+        features: ['Multi Branch', 'AI Business Insights', 'API Access', '24/7 Priority Support', 'Custom Integrations', 'Custom Branding', 'Dedicated Manager', 'Enterprise Deployment'],
       },
     ],
   },

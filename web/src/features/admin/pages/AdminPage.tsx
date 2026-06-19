@@ -57,10 +57,15 @@ function StatusPill({ status }: { status: string }) {
 
 // ─── Guard: only super admins can access this page ────────────────────────────
 
+// Owner emails that always have admin access (initial setup)
+const OWNER_EMAILS = ['kalungura555@gmail.com', 'f.kalungura@autorevenuelabs.com']
+
 function useIsAdmin(userId?: string) {
+  const { user } = useAuth()
   return useQuery<boolean>({
-    queryKey: ['is-super-admin', userId],
+    queryKey: ['is-super-admin', userId, user?.email],
     queryFn: async () => {
+      if (user?.email && OWNER_EMAILS.includes(user.email)) return true
       const { data } = await supabase
         .from('super_admins')
         .select('user_id')
