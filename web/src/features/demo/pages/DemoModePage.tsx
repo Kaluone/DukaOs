@@ -62,23 +62,23 @@ export function DemoModePage() {
         const randomProducts = productIds.slice(0, Math.floor(Math.random() * 3) + 1)
         const items = randomProducts.map(pid => {
           const prod = DEMO_PRODUCTS[productIds.indexOf(pid)]
-          return { product_id: pid, name: prod?.name ?? 'Product', quantity: Math.floor(Math.random() * 3) + 1, selling_price: prod?.price ?? 1000 }
+          return { product_id: pid, quantity: Math.floor(Math.random() * 3) + 1, unit_price: prod?.price ?? 1000 }
         })
-        const subtotal = items.reduce((s, it) => s + it.quantity * it.selling_price, 0)
+        const total = items.reduce((s, it) => s + it.quantity * it.unit_price, 0)
         const daysAgo = Math.floor(Math.random() * 30)
         const date = new Date()
         date.setDate(date.getDate() - daysAgo)
         const { data: txn } = await supabase.from('transactions').insert({
-          shop_id: shop.id, type: 'income', status: 'completed',
-          payment_method: ['cash', 'mpesa', 'card'][Math.floor(Math.random() * 3)],
-          subtotal, tax_total: 0, total_amount: subtotal,
+          shop_id: shop.id,
+          payment_method: ['cash', 'mpesa', 'tigopesa'][Math.floor(Math.random() * 3)],
+          total_amount: total,
+          sync_status: 'synced',
           created_at: date.toISOString(),
         }).select('id').single()
         if (txn) {
           await supabase.from('transaction_items').insert(items.map(it => ({
-            transaction_id: txn.id, shop_id: shop.id, product_id: it.product_id,
-            product_name: it.name, quantity: it.quantity, unit_price: it.selling_price,
-            total_price: it.quantity * it.selling_price,
+            transaction_id: txn.id, shop_id: shop.id,
+            product_id: it.product_id, quantity: it.quantity, unit_price: it.unit_price,
           })))
         }
       }
@@ -93,7 +93,7 @@ export function DemoModePage() {
           shop_id: shop.id,
           category: categories[Math.floor(Math.random() * categories.length)],
           amount: Math.floor(Math.random() * 100000) + 10000,
-          date: date.toISOString().split('T')[0],
+          expense_date: date.toISOString().split('T')[0],
           description: `Demo expense ${i + 1}`,
         })
       }
