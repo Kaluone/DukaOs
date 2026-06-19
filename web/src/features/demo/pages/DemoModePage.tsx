@@ -6,16 +6,16 @@ import { useAuth } from '@/shared/hooks/useAuth'
 import { useShop } from '@/shared/hooks/useShop'
 
 const DEMO_PRODUCTS = [
-  { name: 'Unga wa Ugali 2kg', selling_price: 4500, buying_price: 3800, category: 'Groceries' },
-  { name: 'Sukari 1kg', selling_price: 2800, buying_price: 2200, category: 'Groceries' },
-  { name: 'Mafuta ya Alizeti 1L', selling_price: 5500, buying_price: 4500, category: 'Cooking' },
-  { name: 'Sabuni ya Kufulia 500g', selling_price: 1800, buying_price: 1400, category: 'Cleaning' },
-  { name: 'Chumvi 1kg', selling_price: 800, buying_price: 600, category: 'Groceries' },
-  { name: 'Chai Kibo 100g', selling_price: 2200, buying_price: 1800, category: 'Beverages' },
-  { name: 'Mkate wa Sandwichi', selling_price: 3500, buying_price: 2800, category: 'Bakery' },
-  { name: 'Maziwa Fresh 1L', selling_price: 2500, buying_price: 2000, category: 'Dairy' },
-  { name: 'Mchele Superio 2kg', selling_price: 7500, buying_price: 6200, category: 'Groceries' },
-  { name: 'Ndizi (bunch)', selling_price: 4000, buying_price: 3000, category: 'Fresh Produce' },
+  { name: 'Unga wa Ugali 2kg', price: 4500, category: 'Groceries' },
+  { name: 'Sukari 1kg', price: 2800, category: 'Groceries' },
+  { name: 'Mafuta ya Alizeti 1L', price: 5500, category: 'Cooking' },
+  { name: 'Sabuni ya Kufulia 500g', price: 1800, category: 'Cleaning' },
+  { name: 'Chumvi 1kg', price: 800, category: 'Groceries' },
+  { name: 'Chai Kibo 100g', price: 2200, category: 'Beverages' },
+  { name: 'Mkate wa Sandwichi', price: 3500, category: 'Bakery' },
+  { name: 'Maziwa Fresh 1L', price: 2500, category: 'Dairy' },
+  { name: 'Mchele Superio 2kg', price: 7500, category: 'Groceries' },
+  { name: 'Ndizi (bunch)', price: 4000, category: 'Fresh Produce' },
 ]
 
 const DEMO_CUSTOMERS = [
@@ -44,7 +44,7 @@ export function DemoModePage() {
       for (const p of DEMO_PRODUCTS) {
         const { data: existing } = await supabase.from('products').select('id').eq('shop_id', shop.id).eq('name', p.name).single()
         if (existing) { productIds.push(existing.id); addLog(`ℹ️ Product already exists: ${p.name}`); continue }
-        const { data: prod, error } = await supabase.from('products').insert({ shop_id: shop.id, ...p, active: true, type: 'physical' }).select('id').single()
+        const { data: prod, error } = await supabase.from('products').insert({ shop_id: shop.id, ...p, active: true }).select('id').single()
         if (error) throw error
         productIds.push(prod.id)
         await supabase.from('stock_levels').insert({ shop_id: shop.id, product_id: prod.id, quantity: Math.floor(Math.random() * 100) + 20, low_stock_threshold: 5 })
@@ -62,7 +62,7 @@ export function DemoModePage() {
         const randomProducts = productIds.slice(0, Math.floor(Math.random() * 3) + 1)
         const items = randomProducts.map(pid => {
           const prod = DEMO_PRODUCTS[productIds.indexOf(pid)]
-          return { product_id: pid, name: prod?.name ?? 'Product', quantity: Math.floor(Math.random() * 3) + 1, selling_price: prod?.selling_price ?? 1000 }
+          return { product_id: pid, name: prod?.name ?? 'Product', quantity: Math.floor(Math.random() * 3) + 1, selling_price: prod?.price ?? 1000 }
         })
         const subtotal = items.reduce((s, it) => s + it.quantity * it.selling_price, 0)
         const daysAgo = Math.floor(Math.random() * 30)
