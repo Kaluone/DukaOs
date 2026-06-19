@@ -77,7 +77,21 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 const PLAN_ICONS: Record<string, React.ElementType> = {
-  free: Zap, starter: Zap, business: Shield, enterprise: Building2,
+  starter: Zap, business: Shield, pro: Shield, enterprise: Building2,
+}
+
+const PRO_PLAN: SubscriptionPlan = {
+  id: 'pro-static',
+  name: 'pro',
+  display_name: 'Pro',
+  price_monthly: 120000,
+  price_yearly: 1200000,
+  max_products: 10000,
+  max_staff: 50,
+  max_branches: 5,
+  storage_gb: 50,
+  features: ['All Business', 'AI Business Insights', 'Multi User Access', 'WhatsApp Alerts', 'PDF Reports', 'Cloud Backup', 'Priority Support'],
+  sort_order: 3,
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -91,11 +105,10 @@ export function BillingPage() {
   const [upgrading, setUpgrading] = useState<string | null>(null)
 
   // ── Queries ──────────────────────────────────────────────────────────────
-  // Canonical prices — always match the landing page marketing prices
   const MARKETING_PRICES: Record<string, { monthly: number; yearly: number }> = {
-    free:       { monthly: 0,      yearly: 0       },
     starter:    { monthly: 25000,  yearly: 250000  },
     business:   { monthly: 60000,  yearly: 600000  },
+    pro:        { monthly: 120000, yearly: 1200000 },
     enterprise: { monthly: 250000, yearly: 2500000 },
   }
 
@@ -108,12 +121,22 @@ export function BillingPage() {
         .eq('is_active', true)
         .order('sort_order')
       if (error) throw error
-      return (data ?? []).map((p: any) => ({
-        ...p,
-        features: p.features ?? [],
-        price_monthly: MARKETING_PRICES[p.name]?.monthly ?? p.price_monthly,
-        price_yearly:  MARKETING_PRICES[p.name]?.yearly  ?? p.price_yearly,
-      }))
+      // Remove free plan, override prices to match marketing page, inject Pro
+      const dbPlans = (data ?? [])
+        .filter((p: any) => p.name !== 'free')
+        .map((p: any) => ({
+          ...p,
+          features: p.features ?? [],
+          price_monthly: MARKETING_PRICES[p.name]?.monthly ?? p.price_monthly,
+          price_yearly:  MARKETING_PRICES[p.name]?.yearly  ?? p.price_yearly,
+        }))
+      // Insert Pro between Business and Enterprise
+      const businessIdx = dbPlans.findIndex((p: any) => p.name === 'business')
+      const hasProAlready = dbPlans.some((p: any) => p.name === 'pro')
+      if (!hasProAlready && businessIdx !== -1) {
+        dbPlans.splice(businessIdx + 1, 0, PRO_PLAN)
+      }
+      return dbPlans
     },
   })
 
@@ -367,8 +390,8 @@ export function BillingPage() {
                 ))}
               </ul>
 
-              {plan.name === 'enterprise' ? (
-                <a href="mailto:sales@autorevenue.co.tz" className="btn-contact">{t('contactSales')}</a>
+              {(plan.name === 'enterprise' || plan.name === 'pro') ? (
+                <a href="https://wa.me/255740616905?text=Nataka%20kupata%20mpango%20wa%20DukaOS%20" target="_blank" rel="noopener noreferrer" className="btn-contact">{t('contactSales')}</a>
               ) : (
                 <button
                   className={`btn-choose ${isCurrent ? 'btn-choose--current' : ''}`}
