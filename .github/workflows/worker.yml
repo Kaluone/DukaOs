@@ -1,0 +1,42 @@
+name: Worker Deploy
+
+on:
+  push:
+    branches: [main]
+    paths: ['worker/**']
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        working-directory: worker
+        run: docker build -t dukaos-worker:${{ github.sha }} .
+
+      - name: Save image
+        run: docker save dukaos-worker:${{ github.sha }} | gzip > worker.tar.gz
+
+      - name: Deploy to Hetzner
+        env:
+          HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
+          HETZNER_USER: ${{ secrets.HETZNER_USER }}
+          HETZNER_SSH_KEY: ${{ secrets.HETZNER_SSH_KEY }}
+        run: |
+          echo "$HETZNER_SSH_KEY" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          scp -i /tmp/deploy_key -o StrictHostKeyChecking=no worker.tar.gz $HETZNER_USER@$HETZNER_HOST:/tmp/
+          ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no $HETZNER_USER@$HETZNER_HOST << 'EOF'
+            docker load < /tmp/worker.tar.gz
+            docker stop dukaos-worker 2>/dev/null || true
+            docker rm dukaos-worker 2>/dev/null || true
+            docker run -d \
+              --name dukaos-worker \
+              --restart unless-stopped \
+              -p 127.0.0.1:3001:3001 \
+              --env-file /opt/dukaos/.env.worker \
+              dukaos-worker:${{ github.sha }}
+            rm /tmp/worker.tar.gz
+          EOF

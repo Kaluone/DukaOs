@@ -1,0 +1,69 @@
+name: Flutter APK Build
+
+on:
+  push:
+    branches: [main]
+    paths: ['mobile/**']
+  pull_request:
+    paths: ['mobile/**']
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Generate Hive adapters
+        working-directory: mobile
+        run: flutter packages pub run build_runner build --delete-conflicting-outputs
+
+      - name: Analyze
+        working-directory: mobile
+        run: flutter analyze
+
+      - name: Build APK (debug)
+        working-directory: mobile
+        run: |
+          flutter build apk --debug \
+            --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
+            --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+
+      - name: Build APK (release)
+        if: github.ref == 'refs/heads/main'
+        working-directory: mobile
+        env:
+          KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_STORE_FILE: ${{ secrets.KEY_STORE_FILE }}
+        run: |
+          echo "$KEY_STORE_FILE" | base64 -d > android/app/keystore.jks
+          flutter build apk --release \
+            --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
+            --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+
+      - name: Upload APK
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dukaos-release-apk
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30

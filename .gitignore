@@ -1,0 +1,50 @@
+# Secrets — never commit these
+.env
+.env.local
+.env.*.local
+*.pem
+keystore.jks
+key.properties
+google-services.json
+GoogleService-Info.plist
+/supabase/.temp/
+
+# Node
+node_modules/
+dist/
+.next/
+out/
+
+# Flutter / Dart
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/build/
+mobile/.packages
+mobile/pubspec.lock
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/key.properties
+mobile/android/app/keystore.jks
+*.g.dart.bak
+
+# Worker build
+worker/dist/
+worker/node_modules/
+
+# Landing build
+landing/.next/
+landing/node_modules/
+landing/.netlify/
+
+# Hetzner deploy artifact
+worker.tar.gz
+
+# Editor
+.vscode/settings.json
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
