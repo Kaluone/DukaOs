@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react'
+import { ReactNode, useState, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Package, Users, FileText,
@@ -7,7 +7,7 @@ import {
   ShoppingCart, Truck, BarChart2, Activity, CreditCard,
   Bot, Shield, ScrollText, ShieldAlert, GitBranch,
   RotateCcw, CheckSquare, ArrowRightLeft, ClipboardList,
-  Tag, Clock, Moon, BookOpen, Code,
+  Tag, Clock, Moon, Sun, BookOpen, Code,
   Star, Percent, Printer, Barcode, Flag, FileBarChart, Heart, Upload,
   Bell, ArrowUpDown,
 } from 'lucide-react'
@@ -26,6 +26,12 @@ interface LayoutProps {
 
 export function DashboardLayout({ children, shopName }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark')
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', dark)
+    localStorage.setItem('theme', dark ? 'dark' : 'light')
+  }, [dark])
   const navigate = useNavigate()
   const t = useT()
   const { lang, toggleLang } = useLanguageStore()
@@ -157,6 +163,14 @@ export function DashboardLayout({ children, shopName }: LayoutProps) {
               <span className="live-dot" aria-hidden="true" />
               <span className="topbar__live-text">{t('live')}</span>
             </div>
+            <button
+              className="topbar__theme"
+              onClick={() => setDark(d => !d)}
+              aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={dark ? 'Mwanga' : 'Kiza'}
+            >
+              {dark ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
             <button
               className="topbar__lang"
               onClick={toggleLang}
@@ -415,6 +429,16 @@ export function DashboardLayout({ children, shopName }: LayoutProps) {
           color: #fff;
         }
 
+        .topbar__theme {
+          color: var(--color-text-secondary);
+          padding: var(--space-2);
+          border-radius: var(--radius-s);
+          transition: color var(--transition-fast);
+          display: flex;
+          align-items: center;
+        }
+        .topbar__theme:hover { color: var(--color-primary); }
+
         .topbar__notif {
           color: var(--color-text-secondary);
           padding: var(--space-2);
@@ -422,6 +446,24 @@ export function DashboardLayout({ children, shopName }: LayoutProps) {
           transition: color var(--transition-fast);
         }
         .topbar__notif:hover { color: var(--color-primary); }
+
+        /* ---- Dark mode overrides ---- */
+        html.dark {
+          --color-bg:             #0B1409;
+          --color-surface:        #121E0F;
+          --color-surface-2:      #192B14;
+          --color-border:         #253D1E;
+          --color-border-strong:  #355229;
+          --color-text:           #E4F0E0;
+          --color-text-secondary: #9DB897;
+          --color-text-muted:     #5E7A58;
+          --color-primary-light:  rgba(11,92,46,0.22);
+          --color-accent-light:   rgba(232,164,0,0.16);
+          --color-error-bg:       rgba(220,38,38,0.15);
+          --color-success-bg:     rgba(22,163,74,0.15);
+          --color-warning-bg:     rgba(217,119,6,0.15);
+          --color-info-bg:        rgba(3,105,161,0.15);
+        }
 
         /* ---- Main content ---- */
         .main-content {

@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react'
 import { useLanguage } from '../context/LanguageContext'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://app.dukaos.co.tz'
-const WA_URL  = 'https://wa.me/255000000000?text=Nataka%20kujua%20zaidi%20kuhusu%20DukaOS'
+const WA_URL  = 'https://wa.me/255740616905?text=Nataka%20kujua%20zaidi%20kuhusu%20DukaOS'
 
 const t = {
   sw: {

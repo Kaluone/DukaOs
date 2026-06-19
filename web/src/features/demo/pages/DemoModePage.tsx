@@ -47,7 +47,7 @@ export function DemoModePage() {
         const { data: prod, error } = await supabase.from('products').insert({ shop_id: shop.id, ...p, active: true }).select('id').single()
         if (error) throw error
         productIds.push(prod.id)
-        await supabase.from('stock_levels').insert({ shop_id: shop.id, product_id: prod.id, quantity: Math.floor(Math.random() * 100) + 20, low_stock_threshold: 5 })
+        await supabase.from('stock_levels').insert({ shop_id: shop.id, product_id: prod.id, quantity: Math.floor(Math.random() * 100) + 20, reorder_threshold: 5 })
         addLog(`✅ Created product: ${p.name}`)
       }
 
