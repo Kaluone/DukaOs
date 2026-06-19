@@ -95,7 +95,7 @@ function useAdminStats() {
       const cancelled = subRows.filter(s => s.status === 'cancelled').length
 
       // MRR calculation based on plan prices (approximate)
-      const PLAN_PRICES: Record<string, number> = { free: 0, starter: 15000, business: 45000, enterprise: 120000 }
+      const PLAN_PRICES: Record<string, number> = { free: 0, starter: 25000, business: 60000, pro: 120000, enterprise: 250000 }
       const mrr = subRows
         .filter(s => s.status === 'active')
         .reduce((sum, s) => {

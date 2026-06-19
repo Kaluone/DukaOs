@@ -91,6 +91,14 @@ export function BillingPage() {
   const [upgrading, setUpgrading] = useState<string | null>(null)
 
   // ── Queries ──────────────────────────────────────────────────────────────
+  // Canonical prices — always match the landing page marketing prices
+  const MARKETING_PRICES: Record<string, { monthly: number; yearly: number }> = {
+    free:       { monthly: 0,      yearly: 0       },
+    starter:    { monthly: 25000,  yearly: 250000  },
+    business:   { monthly: 60000,  yearly: 600000  },
+    enterprise: { monthly: 250000, yearly: 2500000 },
+  }
+
   const { data: plans = [] } = useQuery<SubscriptionPlan[]>({
     queryKey: ['subscription-plans'],
     queryFn: async () => {
@@ -100,7 +108,12 @@ export function BillingPage() {
         .eq('is_active', true)
         .order('sort_order')
       if (error) throw error
-      return (data ?? []).map((p: any) => ({ ...p, features: p.features ?? [] }))
+      return (data ?? []).map((p: any) => ({
+        ...p,
+        features: p.features ?? [],
+        price_monthly: MARKETING_PRICES[p.name]?.monthly ?? p.price_monthly,
+        price_yearly:  MARKETING_PRICES[p.name]?.yearly  ?? p.price_yearly,
+      }))
     },
   })
 
