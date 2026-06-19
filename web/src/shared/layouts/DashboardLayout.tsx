@@ -78,7 +78,6 @@ export function DashboardLayout({ children, shopName }: LayoutProps) {
     { to: '/billing',    label: t('billingTitle'),   icon: CreditCard },
     { to: '/security',   label: t('securityTitle'),  icon: Shield },
     { to: '/settings',   label: t('navSettings'),    icon: Settings },
-    { to: '/admin',      label: t('adminTitle'),     icon: ShieldAlert },
   ]
 
   const handleSignOut = async () => {
