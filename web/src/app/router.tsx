@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { ARCRouter } from '@/features/control-center/ARCRouter'
 import { useAuth } from '@/shared/hooks/useAuth'
 import { useShop } from '@/shared/hooks/useShop'
 import { DashboardLayout } from '@/shared/layouts/DashboardLayout'
@@ -21,7 +22,6 @@ import { AuditPage }        from '@/features/audit/pages/AuditPage'
 import { ActivityPage }     from '@/features/activity/pages/ActivityPage'
 import { BillingPage }      from '@/features/billing/pages/BillingPage'
 import { AIAssistantPage }  from '@/features/ai/pages/AIAssistantPage'
-import { AdminPage }        from '@/features/admin/pages/AdminPage'
 import { SecurityPage }     from '@/features/security/pages/SecurityPage'
 // Enterprise features
 import { BranchesPage }         from '@/features/branches/pages/BranchesPage'
@@ -92,6 +92,9 @@ function G({ children }: { children: React.ReactNode }) {
 export function AppRouter() {
   return (
     <Routes>
+      {/* AutoRevenue Labs Control Center — completely separate from customer app */}
+      <Route path="/arc/*" element={<ARCRouter />} />
+
       {/* Public */}
       <Route path="/login"   element={<LoginPage />} />
       <Route path="/terms"   element={<TermsPage />} />
@@ -117,7 +120,6 @@ export function AppRouter() {
       <Route path="/billing"    element={<G><BillingPage /></G>} />
       <Route path="/ai"         element={<G><AIAssistantPage /></G>} />
       <Route path="/security"   element={<G><SecurityPage /></G>} />
-      <Route path="/admin"      element={<G><AdminPage /></G>} />
 
       {/* Enterprise features */}
       <Route path="/branches"   element={<G><BranchesPage /></G>} />
