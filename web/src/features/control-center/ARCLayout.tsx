@@ -3,11 +3,12 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Building2, DollarSign, HeadphonesIcon,
   FileText, Monitor, BarChart2, HardDrive, Users,
-  LogOut, Menu, Moon, Sun, Shield,
-  ChevronRight, ScrollText,
+  LogOut, Menu, Moon, Sun,
+  ChevronRight, ScrollText, Radio,
 } from 'lucide-react'
 import { supabase } from '@/shared/lib/supabaseClient'
 import { useARCAdmin, ROLE_LABEL, hasPerm } from './useARCAuth'
+import { ARCLogo } from './ARCLogo'
 
 const NAV = [
   { to: '/arc/dashboard',  label: 'Global Dashboard',  icon: LayoutDashboard, perm: 'dashboard' },
@@ -20,6 +21,7 @@ const NAV = [
   { to: '/arc/backup',     label: 'Backup & Recovery', icon: HardDrive,        perm: 'backup' },
   { to: '/arc/audit',      label: 'Audit Logs',        icon: ScrollText,       perm: 'audit' },
   { to: '/arc/admins',     label: 'Admin Management',  icon: Users,            perm: 'admins' },
+  { to: '/arc/broadcast',  label: 'Broadcast Center',  icon: Radio,            perm: 'broadcast' },
 ]
 
 interface ARCLayoutProps { children: ReactNode }
@@ -57,25 +59,10 @@ export function ARCLayout({ children }: ARCLayoutProps) {
         display: 'flex', alignItems: 'center', gap: 10,
         justifyContent: collapsed ? 'center' : 'space-between',
       }}>
-        {!collapsed && (
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{
-                width: 28, height: 28, borderRadius: 8,
-                background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <Shield size={16} color="#fff" />
-              </div>
-              <span style={{ color: '#f1f5f9', fontSize: 13, fontWeight: 800, letterSpacing: '-0.01em' }}>
-                ARC
-              </span>
-            </div>
-            <div style={{ color: '#475569', fontSize: 10, marginTop: 2, letterSpacing: '0.06em', paddingLeft: 36 }}>
-              CONTROL CENTER
-            </div>
-          </div>
-        )}
+        {collapsed
+          ? <ARCLogo size={28} showText={false} />
+          : <ARCLogo size={28} showText={true} collapsed={false} />
+        }
         <button onClick={() => setCollapsed(c => !c)} style={{
           background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
           borderRadius: 8, padding: 6, cursor: 'pointer', color: '#64748b',

@@ -1,8 +1,10 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { ARCRouter } from '@/features/control-center/ARCRouter'
+import { EmployeeRouter } from '@/features/employee/EmployeeRouter'
 import { useAuth } from '@/shared/hooks/useAuth'
 import { useShop } from '@/shared/hooks/useShop'
 import { DashboardLayout } from '@/shared/layouts/DashboardLayout'
+import { useStaffSession } from '@/features/staff/store/staffSessionStore'
 import { LoginPage }        from '@/features/auth/pages/LoginPage'
 import { SetupPage }        from '@/features/auth/pages/SetupPage'
 import { DashboardPage }    from '@/features/dashboard/pages/DashboardPage'
@@ -22,6 +24,8 @@ import { AuditPage }        from '@/features/audit/pages/AuditPage'
 import { ActivityPage }     from '@/features/activity/pages/ActivityPage'
 import { BillingPage }      from '@/features/billing/pages/BillingPage'
 import { AIAssistantPage }  from '@/features/ai/pages/AIAssistantPage'
+import { InsightsPage }     from '@/features/insights/pages/InsightsPage'
+import { InvoicePage }      from '@/features/invoice/pages/InvoicePage'
 import { SecurityPage }     from '@/features/security/pages/SecurityPage'
 // Enterprise features
 import { BranchesPage }         from '@/features/branches/pages/BranchesPage'
@@ -86,6 +90,8 @@ function ShopGuard({ children, layout = true }: { children: React.ReactNode; lay
 }
 
 function G({ children }: { children: React.ReactNode }) {
+  const { isStaffMode } = useStaffSession()
+  if (isStaffMode) return <Navigate to="/employee" replace />
   return <AuthGuard><ShopGuard>{children}</ShopGuard></AuthGuard>
 }
 
@@ -95,6 +101,9 @@ export function AppRouter() {
       {/* AutoRevenue Labs Control Center — completely separate from customer app */}
       <Route path="/arc/*" element={<ARCRouter />} />
 
+      {/* Employee Dashboard — only accessible in staff mode */}
+      <Route path="/employee/*" element={<AuthGuard><ShopGuard layout={false}><EmployeeRouter /></ShopGuard></AuthGuard>} />
+
       {/* Public */}
       <Route path="/login"   element={<LoginPage />} />
       <Route path="/terms"   element={<TermsPage />} />
@@ -103,6 +112,9 @@ export function AppRouter() {
 
       {/* POS — full-screen */}
       <Route path="/pos" element={<AuthGuard><ShopGuard layout={false}><POSPage /></ShopGuard></AuthGuard>} />
+
+      {/* Invoice — full-screen, no sidebar */}
+      <Route path="/invoice/:transactionId" element={<AuthGuard><ShopGuard layout={false}><InvoicePage /></ShopGuard></AuthGuard>} />
 
       {/* Core dashboard routes */}
       <Route path="/dashboard"  element={<G><DashboardPage /></G>} />
@@ -119,6 +131,7 @@ export function AppRouter() {
       <Route path="/activity"   element={<G><ActivityPage /></G>} />
       <Route path="/billing"    element={<G><BillingPage /></G>} />
       <Route path="/ai"         element={<G><AIAssistantPage /></G>} />
+      <Route path="/insights"   element={<G><InsightsPage /></G>} />
       <Route path="/security"   element={<G><SecurityPage /></G>} />
 
       {/* Enterprise features */}

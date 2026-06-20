@@ -30,31 +30,31 @@ export const ROLE_PERMS: Record<ARCRole, Record<string, boolean>> = {
     dashboard: true, tenants: true, revenue: true, support: true,
     reports: true, system: true, analytics: true, backup: true,
     admins: true, impersonate: true, delete_tenant: true,
-    manage_billing: true, audit: true,
+    manage_billing: true, audit: true, broadcast: true,
   },
   chief_admin: {
     dashboard: true, tenants: true, revenue: false, support: true,
     reports: true, system: false, analytics: false, backup: false,
     admins: false, impersonate: false, delete_tenant: false,
-    manage_billing: true, audit: true,
+    manage_billing: true, audit: true, broadcast: true,
   },
   support_agent: {
     dashboard: true, tenants: false, revenue: false, support: true,
     reports: false, system: false, analytics: false, backup: false,
     admins: false, impersonate: false, delete_tenant: false,
-    manage_billing: false, audit: false,
+    manage_billing: false, audit: false, broadcast: false,
   },
   finance_admin: {
     dashboard: true, tenants: false, revenue: true, support: false,
     reports: true, system: false, analytics: true, backup: false,
     admins: false, impersonate: false, delete_tenant: false,
-    manage_billing: false, audit: false,
+    manage_billing: false, audit: false, broadcast: false,
   },
   technical_admin: {
     dashboard: true, tenants: false, revenue: false, support: false,
     reports: false, system: true, analytics: false, backup: true,
     admins: false, impersonate: false, delete_tenant: false,
-    manage_billing: false, audit: true,
+    manage_billing: false, audit: true, broadcast: false,
   },
 }
 

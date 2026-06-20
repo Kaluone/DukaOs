@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS sync_log (
 ALTER TABLE sync_log ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "sync_log_shop" ON sync_log
-  USING (shop_id IN (SELECT id FROM shops WHERE owner_id = auth.uid()));
+  USING (shop_id IN (SELECT id FROM shops WHERE owner_user_id = auth.uid()));
 
 CREATE INDEX IF NOT EXISTS idx_sync_log_shop_status ON sync_log(shop_id, status);
 CREATE INDEX IF NOT EXISTS idx_sync_log_created ON sync_log(created_at DESC);
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "push_subscriptions_shop" ON push_subscriptions
-  USING (shop_id IN (SELECT id FROM shops WHERE owner_id = auth.uid()));
+  USING (shop_id IN (SELECT id FROM shops WHERE owner_user_id = auth.uid()));
 
 CREATE INDEX IF NOT EXISTS idx_push_subs_shop ON push_subscriptions(shop_id);
 
@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS notification_settings (
 ALTER TABLE notification_settings ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "notification_settings_shop" ON notification_settings
-  USING (shop_id IN (SELECT id FROM shops WHERE owner_id = auth.uid()));
+  USING (shop_id IN (SELECT id FROM shops WHERE owner_user_id = auth.uid()));
 
 -- ── Notification history ─────────────────────────────────────
 CREATE TABLE IF NOT EXISTS notification_history (
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS notification_history (
 ALTER TABLE notification_history ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "notification_history_shop" ON notification_history
-  USING (shop_id IN (SELECT id FROM shops WHERE owner_id = auth.uid()));
+  USING (shop_id IN (SELECT id FROM shops WHERE owner_user_id = auth.uid()));
 
 CREATE INDEX IF NOT EXISTS idx_notif_history_shop ON notification_history(shop_id, sent_at DESC);
 
@@ -100,7 +100,7 @@ CREATE TABLE IF NOT EXISTS loyalty_tiers (
 ALTER TABLE loyalty_tiers ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "loyalty_tiers_shop" ON loyalty_tiers
-  USING (shop_id IN (SELECT id FROM shops WHERE owner_id = auth.uid()));
+  USING (shop_id IN (SELECT id FROM shops WHERE owner_user_id = auth.uid()));
 
 -- ── Loyalty transactions ─────────────────────────────────────
 CREATE TABLE IF NOT EXISTS loyalty_transactions (
@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS loyalty_transactions (
 ALTER TABLE loyalty_transactions ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "loyalty_transactions_shop" ON loyalty_transactions
-  USING (shop_id IN (SELECT id FROM shops WHERE owner_id = auth.uid()));
+  USING (shop_id IN (SELECT id FROM shops WHERE owner_user_id = auth.uid()));
 
 CREATE INDEX IF NOT EXISTS idx_loyalty_tx_customer ON loyalty_transactions(customer_id);
 
@@ -134,7 +134,7 @@ CREATE TABLE IF NOT EXISTS tax_rates (
 ALTER TABLE tax_rates ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "tax_rates_shop" ON tax_rates
-  USING (shop_id IN (SELECT id FROM shops WHERE owner_id = auth.uid()));
+  USING (shop_id IN (SELECT id FROM shops WHERE owner_user_id = auth.uid()));
 
 -- Only one default per shop
 CREATE UNIQUE INDEX IF NOT EXISTS idx_tax_rates_default
@@ -161,7 +161,7 @@ CREATE TABLE IF NOT EXISTS receipt_templates (
 ALTER TABLE receipt_templates ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "receipt_templates_shop" ON receipt_templates
-  USING (shop_id IN (SELECT id FROM shops WHERE owner_id = auth.uid()));
+  USING (shop_id IN (SELECT id FROM shops WHERE owner_user_id = auth.uid()));
 
 -- ── Feature flags ─────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS feature_flags (
@@ -176,19 +176,19 @@ CREATE TABLE IF NOT EXISTS feature_flags (
 ALTER TABLE feature_flags ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "feature_flags_shop" ON feature_flags
-  USING (shop_id IN (SELECT id FROM shops WHERE owner_id = auth.uid()));
+  USING (shop_id IN (SELECT id FROM shops WHERE owner_user_id = auth.uid()));
 
 -- ── Document storage bucket (idempotent) ──────────────────────
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('documents', 'documents', false)
 ON CONFLICT (id) DO NOTHING;
 
-CREATE POLICY IF NOT EXISTS "documents_shop_access"
+CREATE POLICY "documents_shop_access"
 ON storage.objects FOR ALL
 USING (
   bucket_id = 'documents'
   AND (storage.foldername(name))[1] IN (
-    SELECT id::text FROM shops WHERE owner_id = auth.uid()
+    SELECT id::text FROM shops WHERE owner_user_id = auth.uid()
   )
 );
 

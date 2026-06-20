@@ -2,7 +2,7 @@
 -- DukaOS — AutoRevenue Labs Control Center (ARC)
 -- Super Admin infrastructure: roles, audit logs, sessions,
 -- support tickets, and ARC-wide admin management
--- 008_arc_control_center.sql
+-- 008_arc_control_center.sql  (idempotent — safe to re-run)
 -- ============================================================
 
 -- ─── ARC ADMIN ROLES ─────────────────────────────────────────────────────────
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS public.arc_admins (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_arc_admins_user ON public.arc_admins(user_id);
 ALTER TABLE public.arc_admins ENABLE ROW LEVEL SECURITY;
 
--- Only arc admins can read arc_admins table
+DROP POLICY IF EXISTS "arc_admins: self read" ON public.arc_admins;
 CREATE POLICY "arc_admins: self read"
   ON public.arc_admins FOR SELECT
   USING (user_id = auth.uid());
@@ -43,8 +43,8 @@ CREATE TABLE IF NOT EXISTS public.arc_audit_logs (
   admin_id      UUID        REFERENCES public.arc_admins(id),
   admin_email   TEXT        NOT NULL,
   admin_role    TEXT        NOT NULL,
-  action        TEXT        NOT NULL,   -- e.g. 'suspend_tenant', 'impersonate', 'delete'
-  resource_type TEXT,                   -- e.g. 'tenant', 'subscription'
+  action        TEXT        NOT NULL,
+  resource_type TEXT,
   resource_id   TEXT,
   resource_name TEXT,
   details       JSONB       DEFAULT '{}',
@@ -52,10 +52,13 @@ CREATE TABLE IF NOT EXISTS public.arc_audit_logs (
   user_agent    TEXT,
   created_at    TIMESTAMPTZ DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_arc_audit_admin ON public.arc_audit_logs(admin_id);
-CREATE INDEX IF NOT EXISTS idx_arc_audit_action ON public.arc_audit_logs(action);
+CREATE INDEX IF NOT EXISTS idx_arc_audit_admin   ON public.arc_audit_logs(admin_id);
+CREATE INDEX IF NOT EXISTS idx_arc_audit_action  ON public.arc_audit_logs(action);
 CREATE INDEX IF NOT EXISTS idx_arc_audit_created ON public.arc_audit_logs(created_at DESC);
 ALTER TABLE public.arc_audit_logs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "arc_audit: insert own"    ON public.arc_audit_logs;
+DROP POLICY IF EXISTS "arc_audit: select all arc" ON public.arc_audit_logs;
 CREATE POLICY "arc_audit: insert own"
   ON public.arc_audit_logs FOR INSERT WITH CHECK (true);
 CREATE POLICY "arc_audit: select all arc"
@@ -63,7 +66,9 @@ CREATE POLICY "arc_audit: select all arc"
     EXISTS (SELECT 1 FROM public.arc_admins WHERE user_id = auth.uid() AND is_active = true)
   );
 
--- Prevent updates/deletes on audit logs (immutable)
+-- Immutable audit log rules
+DROP RULE IF EXISTS arc_audit_no_update ON public.arc_audit_logs;
+DROP RULE IF EXISTS arc_audit_no_delete ON public.arc_audit_logs;
 CREATE RULE arc_audit_no_update AS ON UPDATE TO public.arc_audit_logs DO INSTEAD NOTHING;
 CREATE RULE arc_audit_no_delete AS ON DELETE TO public.arc_audit_logs DO INSTEAD NOTHING;
 
@@ -72,7 +77,7 @@ CREATE TABLE IF NOT EXISTS public.arc_sessions (
   id            UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
   admin_id      UUID        NOT NULL REFERENCES public.arc_admins(id),
   tenant_id     UUID        REFERENCES public.shops(id),
-  session_type  TEXT        NOT NULL DEFAULT 'support'  -- 'support', 'impersonation'
+  session_type  TEXT        NOT NULL DEFAULT 'support'
                 CHECK (session_type IN ('support','impersonation')),
   reason        TEXT,
   started_at    TIMESTAMPTZ DEFAULT now(),
@@ -80,6 +85,8 @@ CREATE TABLE IF NOT EXISTS public.arc_sessions (
   is_active     BOOLEAN NOT NULL DEFAULT true
 );
 ALTER TABLE public.arc_sessions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "arc_sessions: arc admins" ON public.arc_sessions;
 CREATE POLICY "arc_sessions: arc admins"
   ON public.arc_sessions FOR ALL USING (
     EXISTS (SELECT 1 FROM public.arc_admins WHERE user_id = auth.uid() AND is_active = true)
@@ -107,10 +114,12 @@ CREATE TABLE IF NOT EXISTS public.support_tickets (
   created_at      TIMESTAMPTZ DEFAULT now(),
   updated_at      TIMESTAMPTZ DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_tickets_shop ON public.support_tickets(shop_id);
-CREATE INDEX IF NOT EXISTS idx_tickets_status ON public.support_tickets(status);
+CREATE INDEX IF NOT EXISTS idx_tickets_shop     ON public.support_tickets(shop_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_status   ON public.support_tickets(status);
 CREATE INDEX IF NOT EXISTS idx_tickets_assigned ON public.support_tickets(assigned_to);
 ALTER TABLE public.support_tickets ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "support_tickets: arc admins" ON public.support_tickets;
 CREATE POLICY "support_tickets: arc admins"
   ON public.support_tickets FOR ALL USING (
     EXISTS (SELECT 1 FROM public.arc_admins WHERE user_id = auth.uid() AND is_active = true)
@@ -127,6 +136,8 @@ CREATE TABLE IF NOT EXISTS public.support_messages (
   created_at  TIMESTAMPTZ DEFAULT now()
 );
 ALTER TABLE public.support_messages ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "support_messages: arc admins" ON public.support_messages;
 CREATE POLICY "support_messages: arc admins"
   ON public.support_messages FOR ALL USING (
     EXISTS (SELECT 1 FROM public.arc_admins WHERE user_id = auth.uid() AND is_active = true)
@@ -139,11 +150,13 @@ CREATE TABLE IF NOT EXISTS public.arc_system_snapshots (
   memory_pct    NUMERIC(5,2),
   disk_pct      NUMERIC(5,2),
   db_status     TEXT    DEFAULT 'ok',
-  api_latency   INT,    -- ms
+  api_latency   INT,
   active_users  INT     DEFAULT 0,
   snapshot_at   TIMESTAMPTZ DEFAULT now()
 );
 ALTER TABLE public.arc_system_snapshots ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "arc_snapshots: arc admins" ON public.arc_system_snapshots;
 CREATE POLICY "arc_snapshots: arc admins"
   ON public.arc_system_snapshots FOR ALL USING (
     EXISTS (SELECT 1 FROM public.arc_admins WHERE user_id = auth.uid() AND is_active = true)
@@ -164,12 +177,14 @@ CREATE TABLE IF NOT EXISTS public.arc_backups (
   notes         TEXT
 );
 ALTER TABLE public.arc_backups ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "arc_backups: arc admins" ON public.arc_backups;
 CREATE POLICY "arc_backups: arc admins"
   ON public.arc_backups FOR ALL USING (
     EXISTS (SELECT 1 FROM public.arc_admins WHERE user_id = auth.uid() AND is_active = true)
   );
 
--- ─── LANDING PAGE ANALYTICS SNAPSHOTS ───────────────────────────────────────
+-- ─── LANDING PAGE ANALYTICS ──────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.arc_landing_analytics (
   id              UUID    PRIMARY KEY DEFAULT uuid_generate_v4(),
   date            DATE    NOT NULL UNIQUE,
@@ -190,14 +205,14 @@ CREATE TABLE IF NOT EXISTS public.arc_landing_analytics (
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 ALTER TABLE public.arc_landing_analytics ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "arc_analytics: arc admins" ON public.arc_landing_analytics;
 CREATE POLICY "arc_analytics: arc admins"
   ON public.arc_landing_analytics FOR ALL USING (
     EXISTS (SELECT 1 FROM public.arc_admins WHERE user_id = auth.uid() AND is_active = true)
   );
 
--- ─── Insert founder admin (initial setup — update user_id after first login) ─
--- Note: Replace 'kalungura555@gmail.com' user_id after first auth signup
--- This will be done via the ARC setup wizard in the UI
+-- ─── FOUNDER ADMIN SEED ──────────────────────────────────────────────────────
 INSERT INTO public.arc_admins (user_id, email, full_name, role, is_active)
 SELECT
   id,
@@ -209,7 +224,10 @@ FROM auth.users
 WHERE email = 'kalungura555@gmail.com'
 ON CONFLICT (email) DO NOTHING;
 
--- ─── Trigger: update updated_at ──────────────────────────────────────────────
+-- ─── TRIGGERS ────────────────────────────────────────────────────────────────
+DROP TRIGGER IF EXISTS set_arc_admins_updated_at      ON public.arc_admins;
+DROP TRIGGER IF EXISTS set_support_tickets_updated_at ON public.support_tickets;
+
 CREATE TRIGGER set_arc_admins_updated_at
   BEFORE UPDATE ON public.arc_admins
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
@@ -218,7 +236,7 @@ CREATE TRIGGER set_support_tickets_updated_at
   BEFORE UPDATE ON public.support_tickets
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
--- ─── View: arc_tenant_overview ────────────────────────────────────────────────
+-- ─── VIEW: arc_tenant_overview ───────────────────────────────────────────────
 CREATE OR REPLACE VIEW public.arc_tenant_overview AS
 SELECT
   s.id,
@@ -228,17 +246,16 @@ SELECT
   s.address,
   s.created_at,
   ss.plan_name,
-  ss.status AS sub_status,
+  ss.status          AS sub_status,
   ss.trial_ends_at,
   ss.current_period_end,
   ss.billing_cycle,
-  u.email AS owner_email,
+  u.email            AS owner_email,
   u.last_sign_in_at,
   u.raw_user_meta_data->>'full_name' AS owner_name,
-  u.raw_user_meta_data->>'country' AS country
+  u.raw_user_meta_data->>'country'   AS country
 FROM public.shops s
 LEFT JOIN public.shop_subscriptions ss ON ss.shop_id = s.id
 LEFT JOIN auth.users u ON u.id = s.owner_user_id;
 
--- RLS: allow arc admins to query this view
 GRANT SELECT ON public.arc_tenant_overview TO authenticated;

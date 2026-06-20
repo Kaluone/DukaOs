@@ -4,13 +4,14 @@ import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Search, X, Plus, Minus, Trash2,
   Pause, Clock, Printer, CheckCircle, ShoppingCart,
-  AlertTriangle, Camera,
+  AlertTriangle, Camera, Lock, Eye, EyeOff, BarChart2,
 } from 'lucide-react'
 import { supabase } from '@/shared/lib/supabaseClient'
 import { useAuth } from '@/shared/hooks/useAuth'
 import { useShop } from '@/shared/hooks/useShop'
 import { useT } from '@/shared/i18n/useLanguage'
 import { useCartStore, cartTotals, type CartItem } from '../store/cartStore'
+import { useStaffSession, hashPin } from '@/features/staff/store/staffSessionStore'
 import { format } from 'date-fns'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -76,7 +77,7 @@ function usePOSProducts(shopId?: string) {
         category: p.category,
         barcode: (p.barcode as string | null) ?? null,
         stock_quantity:
-          (p.stock_levels as unknown as { quantity: number }[])?.[0]?.quantity ?? 0,
+          (p.stock_levels as unknown as { quantity: number }[] | null)?.[0]?.quantity ?? -1,
       }))
     },
     enabled: !!shopId,
@@ -148,8 +149,8 @@ function ProductTile({ product, onAdd, inCart }: {
       <div className="pos-tile__body">
         <span className="pos-tile__name">{product.name}</span>
         <span className="pos-tile__price">{fmt(product.price)}</span>
-        <span className={`pos-tile__stock ${product.stock_quantity <= 3 && !outOfStock ? 'pos-tile__stock--low' : ''}`}>
-          {t('stockLabel')} {product.stock_quantity}
+        <span className={`pos-tile__stock ${product.stock_quantity >= 0 && product.stock_quantity <= 3 && !outOfStock ? 'pos-tile__stock--low' : ''}`}>
+          {t('stockLabel')} {product.stock_quantity < 0 ? '∞' : product.stock_quantity}
         </span>
       </div>
     </button>
@@ -247,15 +248,75 @@ function Receipt({ sale }: { sale: SaleResult }) {
   )
 }
 
+// ─── PIN input helper ─────────────────────────────────────────────────────────
+function PinInput({ label, value, onChange, onEnter, autoFocus, style }: {
+  label: string; value: string; onChange: (v: string) => void
+  onEnter?: () => void; autoFocus?: boolean; style?: React.CSSProperties
+}) {
+  const [show, setShow] = useState(false)
+  return (
+    <div style={{ position: 'relative', ...style }}>
+      <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-secondary)', display: 'block', marginBottom: 4 }}>
+        {label}
+      </label>
+      <div style={{ position: 'relative' }}>
+        <input
+          type={show ? 'text' : 'password'}
+          inputMode="numeric"
+          maxLength={8}
+          value={value}
+          autoFocus={autoFocus}
+          onChange={e => onChange(e.target.value.replace(/\D/g, ''))}
+          onKeyDown={e => e.key === 'Enter' && onEnter?.()}
+          style={{
+            width: '100%', padding: '11px 40px 11px 14px',
+            border: '1.5px solid var(--color-border)', borderRadius: 10,
+            background: 'var(--color-bg)', color: 'var(--color-text)',
+            fontSize: 22, fontWeight: 700, letterSpacing: 8,
+            boxSizing: 'border-box', outline: 'none',
+          }}
+        />
+        <button type="button" onClick={() => setShow(v => !v)} style={{
+          position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+          color: 'var(--color-text-secondary)',
+        }}>
+          {show ? <EyeOff size={15} /> : <Eye size={15} />}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main POS Page ────────────────────────────────────────────────────────────
 export function POSPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { data: shop } = useShop(user?.id)
   const t = useT()
+  const { isStaffMode, activeStaffId, activeStaffName, exitStaffMode } = useStaffSession()
   const { data: products = [], isLoading } = usePOSProducts(shop?.id)
   const { data: staffList = [] } = useStaffList(shop?.id)
   const { data: customers = [] } = useCustomers(shop?.id)
+
+  // All sales for this staff member (only fetched in staff mode)
+  const { data: todaySales = [], refetch: refetchSales } = useQuery({
+    queryKey: ['staff-all-sales', activeStaffId],
+    enabled: isStaffMode && !!activeStaffId && !!shop?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select(`
+          id, total_amount, payment_method, created_at,
+          transaction_items ( quantity, unit_price, product:products(name) )
+        `)
+        .eq('shop_id', shop!.id)
+        .eq('staff_id', activeStaffId!)
+        .order('created_at', { ascending: false })
+        .limit(100)
+      if (error) throw error
+      return data ?? []
+    },
+  })
 
   const {
     items, order_discount, held_carts,
@@ -271,7 +332,7 @@ export function POSPage() {
   const [showPayment, setShowPayment] = useState(false)
   const [showHeld, setShowHeld] = useState(false)
   const [showReceipt, setShowReceipt] = useState(false)
-  const [activeTab, setActiveTab] = useState<'products' | 'cart'>('products')
+  const [activeTab, setActiveTab] = useState<'products' | 'cart' | 'sales'>('products')
 
   // Payment state
   const [payMethod, setPayMethod] = useState('cash')
@@ -282,6 +343,63 @@ export function POSPage() {
   const [lastSale, setLastSale] = useState<SaleResult | null>(null)
   const [creditCustomerId, setCreditCustomerId] = useState('')
   const [creditCustomerSearch, setCreditCustomerSearch] = useState('')
+
+  // Exit staff mode — uses owner PIN (works for Google & email logins)
+  const [showExitModal, setShowExitModal] = useState(false)
+  const [exitPin, setExitPin] = useState('')
+  const [newPin, setNewPin] = useState('')
+  const [newPinConfirm, setNewPinConfirm] = useState('')
+  const [exitError, setExitError] = useState('')
+  const [exitLoading, setExitLoading] = useState(false)
+  const [settingPin, setSettingPin] = useState(false)
+
+  // Fetch the stored owner PIN hash for this shop
+  const { data: shopPinData, refetch: refetchPin } = useQuery({
+    queryKey: ['owner-pin', shop?.id],
+    enabled: !!shop?.id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('shops')
+        .select('owner_exit_pin_hash')
+        .eq('id', shop!.id)
+        .single()
+      return data
+    },
+  })
+  const hasPin = !!shopPinData?.owner_exit_pin_hash
+
+  const handleExitStaffMode = async () => {
+    if (!exitPin) { setExitError('Weka PIN yako'); return }
+    setExitLoading(true); setExitError('')
+    const hash = await hashPin(exitPin)
+    if (hash !== shopPinData?.owner_exit_pin_hash) {
+      setExitError('PIN si sahihi. Jaribu tena.')
+      setExitPin('')
+      setExitLoading(false)
+      return
+    }
+    exitStaffMode()
+    setShowExitModal(false)
+    setExitPin('')
+    navigate('/dashboard')
+    setExitLoading(false)
+  }
+
+  const handleSaveNewPin = async () => {
+    if (newPin.length < 4) { setExitError('PIN lazima iwe nambari 4 au zaidi'); return }
+    if (newPin !== newPinConfirm) { setExitError('PIN hazifanani. Jaribu tena.'); return }
+    setExitLoading(true); setExitError('')
+    const hash = await hashPin(newPin)
+    const { error } = await supabase
+      .from('shops')
+      .update({ owner_exit_pin_hash: hash })
+      .eq('id', shop!.id)
+    if (error) { setExitError('Hitilafu. Jaribu tena.'); setExitLoading(false); return }
+    await refetchPin()
+    setSettingPin(false)
+    setNewPin(''); setNewPinConfirm('')
+    setExitLoading(false)
+  }
 
   // Clock
   const [clock, setClock] = useState(new Date())
@@ -395,7 +513,7 @@ export function POSPage() {
 
     const { data, error } = await supabase.rpc('process_sale', {
       p_shop_id: shop.id,
-      p_staff_id: selectedStaffId || null,
+      p_staff_id: isStaffMode ? (activeStaffId || null) : (selectedStaffId || null),
       p_payment_method: payMethod,
       p_total_amount: total,
       p_discount: order_discount,
@@ -449,6 +567,7 @@ export function POSPage() {
     setShowReceipt(false)
     setLastSale(null)
     setActiveTab('products')
+    if (isStaffMode) refetchSales()
     searchRef.current?.focus()
   }
 
@@ -456,10 +575,17 @@ export function POSPage() {
     <div className="pos">
       {/* ── Top bar ────────────────────────────────────────────────── */}
       <header className="pos-bar">
-        <button className="pos-bar__back" onClick={() => navigate('/dashboard')} title={t('back')}>
-          <ArrowLeft size={18} />
-          <span className="pos-bar__back-label">{t('back')}</span>
-        </button>
+        {isStaffMode ? (
+          <button className="pos-bar__back pos-bar__exit-staff" onClick={() => setShowExitModal(true)} title="Rudi kwa Mmiliki">
+            <Lock size={16} />
+            <span className="pos-bar__back-label">Rudi kwa Mmiliki</span>
+          </button>
+        ) : (
+          <button className="pos-bar__back" onClick={() => navigate('/dashboard')} title={t('back')}>
+            <ArrowLeft size={18} />
+            <span className="pos-bar__back-label">{t('back')}</span>
+          </button>
+        )}
 
         <div className="pos-bar__center">
           <span className="pos-bar__shop">{shop?.name ?? 'DukaOS'}</span>
@@ -467,7 +593,12 @@ export function POSPage() {
         </div>
 
         <div className="pos-bar__right">
-          {staffList.length > 0 && (
+          {isStaffMode ? (
+            <span className="pos-bar__staff-badge">
+              <span className="pos-bar__staff-dot" />
+              {activeStaffName}
+            </span>
+          ) : staffList.length > 0 && (
             <select
               className="pos-staff-sel"
               value={selectedStaffId}
@@ -503,6 +634,16 @@ export function POSPage() {
           {t('cartTab')}
           {items.length > 0 && <span className="pos-tab__badge">{items.length}</span>}
         </button>
+        {isStaffMode && (
+          <button
+            className={`pos-tab ${activeTab === 'sales' ? 'pos-tab--active' : ''}`}
+            onClick={() => { setActiveTab('sales'); refetchSales() }}
+          >
+            <BarChart2 size={14} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} />
+            Mauzo Yangu
+            {todaySales.length > 0 && <span className="pos-tab__badge">{todaySales.length}</span>}
+          </button>
+        )}
       </div>
 
       {/* ── Body ──────────────────────────────────────────────────────── */}
@@ -625,6 +766,63 @@ export function POSPage() {
             </div>
           )}
         </section>
+
+        {/* ── Today's Sales panel (staff mode only) ─────────────────── */}
+        {isStaffMode && (
+          <section className={`pos-sales-panel ${activeTab === 'sales' ? 'pos-panel--show' : 'pos-panel--hide'}`}>
+            {/* Summary header */}
+            <div className="pos-sales-panel__header">
+              <div className="pos-sales-stat">
+                <span className="pos-sales-stat__label">Mauzo Yangu</span>
+                <span className="pos-sales-stat__count">{todaySales.length} mauzo</span>
+              </div>
+              <div className="pos-sales-stat pos-sales-stat--total">
+                <span className="pos-sales-stat__label">Jumla</span>
+                <span className="pos-sales-stat__amount">
+                  {fmt(todaySales.reduce((s, tx) => s + Number(tx.total_amount), 0))}
+                </span>
+              </div>
+            </div>
+
+            {/* Sales list */}
+            <div className="pos-sales-panel__list">
+              {todaySales.length === 0 ? (
+                <div className="pos-sales-empty">
+                  <BarChart2 size={40} style={{ color: 'var(--color-text-muted)', marginBottom: 10 }} />
+                  <p>Bado hujafanya mauzo yoyote</p>
+                  <span>Rekodi zitaonekana hapa baada ya kuuza</span>
+                </div>
+              ) : (
+                todaySales.map((tx: any, idx: number) => (
+                  <div key={tx.id} className="pos-sale-card">
+                    <div className="pos-sale-card__head">
+                      <span className="pos-sale-card__num">#{todaySales.length - idx}</span>
+                      <span className="pos-sale-card__time">
+                        {format(new Date(tx.created_at), 'dd/MM HH:mm')}
+                      </span>
+                      <span className={`pos-sale-card__method pos-sale-card__method--${tx.payment_method}`}>
+                        {tx.payment_method === 'cash' ? 'Pesa Taslimu'
+                          : tx.payment_method === 'mpesa' ? 'M-Pesa'
+                          : tx.payment_method === 'tigopesa' ? 'Tigo Pesa'
+                          : tx.payment_method === 'airtelmoney' ? 'Airtel'
+                          : tx.payment_method === 'halopesa' ? 'HaloPesa'
+                          : tx.payment_method}
+                      </span>
+                      <span className="pos-sale-card__total">{fmt(tx.total_amount)}</span>
+                    </div>
+                    <div className="pos-sale-card__items">
+                      {(tx.transaction_items as any[]).map((item: any, i: number) => (
+                        <span key={i} className="pos-sale-card__item">
+                          {item.product?.name ?? 'Bidhaa'} × {item.quantity}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        )}
       </div>
 
       {/* ── Held Carts Modal ────────────────────────────────────────── */}
@@ -808,10 +1006,82 @@ export function POSPage() {
               <button className="pay-btn-print" onClick={handlePrint}>
                 <Printer size={15} /> {t('print')}
               </button>
+              <button className="pay-btn-print" onClick={() => navigate(`/invoice/${lastSale.transaction_id}`)} style={{ background: 'var(--color-bg)', color: 'var(--color-primary)', border: '1.5px solid var(--color-primary)' }}>
+                <BarChart2 size={15} /> Ankara
+              </button>
               <button className="pay-btn-newsale" onClick={handleNewSale}>
                 {t('newSale')}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Exit Staff Mode Modal ───────────────────────────────────── */}
+      {showExitModal && (
+        <div className="pos-modal-overlay" onClick={() => {
+          setShowExitModal(false); setExitPin(''); setNewPin(''); setNewPinConfirm('')
+          setExitError(''); setSettingPin(false)
+        }}>
+          <div className="pos-modal animate-scale-in" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 360 }}>
+            <div className="pos-modal__head">
+              <Lock size={20} style={{ color: 'var(--color-primary)' }} />
+              <h3>{!hasPin || settingPin ? 'Weka PIN ya Mmiliki' : 'Rudi kwa Mmiliki'}</h3>
+            </div>
+
+            {/* ── First time: set a PIN ── */}
+            {(!hasPin || settingPin) ? (
+              <div className="pos-modal__body" style={{ padding: '16px 20px' }}>
+                <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 14 }}>
+                  {settingPin
+                    ? 'Badilisha PIN yako ya kufungua mfumo.'
+                    : 'Umeingia kwa Google. Weka PIN ya nambari 4-6 utakayoitumia kufungua mfumo badala ya nenosiri.'}
+                </p>
+                <PinInput label="PIN Mpya" value={newPin} onChange={v => { setNewPin(v); setExitError('') }} />
+                <PinInput label="Thibitisha PIN" value={newPinConfirm} onChange={v => { setNewPinConfirm(v); setExitError('') }} style={{ marginTop: 10 }} />
+                {exitError && <div className="exit-pin-error">{exitError}</div>}
+                <div className="pos-modal__foot" style={{ marginTop: 16, padding: 0 }}>
+                  <button className="pay-btn-cancel" onClick={() => {
+                    setSettingPin(false); setNewPin(''); setNewPinConfirm(''); setExitError('')
+                  }}>Ghairi</button>
+                  <button className="pay-btn-confirm" disabled={exitLoading || newPin.length < 4} onClick={handleSaveNewPin}>
+                    {exitLoading ? <span className="pay-spinner" /> : <Lock size={14} />}
+                    {exitLoading ? 'Inahifadhi…' : 'Hifadhi PIN'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* ── Normal: enter PIN ── */
+              <div className="pos-modal__body" style={{ padding: '16px 20px' }}>
+                <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 14 }}>
+                  Weka PIN yako ya mmiliki kufungua mfumo kamili.
+                </p>
+                <PinInput
+                  label="PIN ya Mmiliki"
+                  value={exitPin}
+                  onChange={v => { setExitPin(v); setExitError('') }}
+                  onEnter={handleExitStaffMode}
+                  autoFocus
+                />
+                {exitError && <div className="exit-pin-error">{exitError}</div>}
+                <button
+                  type="button"
+                  onClick={() => { setSettingPin(true); setExitPin(''); setExitError('') }}
+                  style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 10, textDecoration: 'underline' }}
+                >
+                  Umesahau PIN? Weka PIN mpya
+                </button>
+                <div className="pos-modal__foot" style={{ marginTop: 16, padding: 0 }}>
+                  <button className="pay-btn-cancel" onClick={() => {
+                    setShowExitModal(false); setExitPin(''); setExitError('')
+                  }}>Ghairi</button>
+                  <button className="pay-btn-confirm" disabled={exitLoading || !exitPin} onClick={handleExitStaffMode}>
+                    {exitLoading ? <span className="pay-spinner" /> : <Lock size={14} />}
+                    {exitLoading ? 'Inathibitisha…' : 'Ingia kama Mmiliki'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -852,6 +1122,23 @@ export function POSPage() {
         .pos-bar__back:hover { color: #fff; }
         .pos-bar__back-label { display: none; }
         @media (min-width: 640px) { .pos-bar__back-label { display: inline; } }
+        .pos-bar__exit-staff { background: rgba(255,255,255,.18); border-radius: 8px; padding: 5px 10px; }
+        .pos-bar__exit-staff:hover { background: rgba(255,255,255,.3); color: #fff; }
+        .exit-pin-error {
+          background: #fee2e2; color: #dc2626;
+          padding: 8px 12px; border-radius: 8px; font-size: 12px;
+          font-weight: 500; margin-top: 10px;
+        }
+        .pos-bar__staff-badge {
+          display: flex; align-items: center; gap: 6px;
+          background: rgba(255,255,255,.18); border-radius: 8px;
+          padding: 4px 10px; font-size: 0.82rem; font-weight: 700; color: #fff;
+        }
+        .pos-bar__staff-dot {
+          width: 8px; height: 8px; border-radius: 50%;
+          background: #4ade80; flex-shrink: 0;
+          box-shadow: 0 0 0 2px rgba(74,222,128,.3);
+        }
 
         .pos-bar__center { display: flex; flex-direction: column; align-items: center; flex: 1; }
         .pos-bar__shop { font-weight: 800; font-size: 0.95rem; font-family: var(--font-heading); }
@@ -968,6 +1255,60 @@ export function POSPage() {
         .pos-tile__price { font-size: 0.8rem; font-weight: 800; color: var(--color-primary); }
         .pos-tile__stock { font-size: 0.68rem; color: var(--color-text-muted); }
         .pos-tile__stock--low { color: var(--color-warning); font-weight: 600; }
+
+        /* ── Today's Sales panel ── */
+        .pos-sales-panel {
+          width: 340px; flex-shrink: 0;
+          background: var(--color-surface); border-left: 1px solid var(--color-border);
+          display: flex; flex-direction: column; overflow: hidden;
+        }
+        @media (min-width: 900px) { .pos-sales-panel { display: flex !important; } }
+        @media (max-width: 899px) { .pos-sales-panel { width: 100%; border-left: none; } }
+
+        .pos-sales-panel__header {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 14px 16px; border-bottom: 1px solid var(--color-border);
+          background: var(--color-bg); flex-shrink: 0;
+        }
+        .pos-sales-stat { display: flex; flex-direction: column; gap: 2px; }
+        .pos-sales-stat__label { font-size: 0.7rem; color: var(--color-text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+        .pos-sales-stat__count { font-size: 0.9rem; font-weight: 700; color: var(--color-text); }
+        .pos-sales-stat--total { text-align: right; }
+        .pos-sales-stat__amount { font-size: 1.05rem; font-weight: 800; color: var(--color-primary); }
+
+        .pos-sales-panel__list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+
+        .pos-sales-empty {
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          flex: 1; text-align: center; color: var(--color-text-muted); padding: 40px 20px;
+        }
+        .pos-sales-empty p { font-size: 0.9rem; font-weight: 600; margin: 0 0 4px; }
+        .pos-sales-empty span { font-size: 0.75rem; }
+
+        .pos-sale-card {
+          background: var(--color-card); border: 1px solid var(--color-border);
+          border-radius: 10px; padding: 10px 12px;
+        }
+        .pos-sale-card__head {
+          display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+        }
+        .pos-sale-card__num { font-weight: 800; font-size: 0.78rem; color: var(--color-text-muted); min-width: 24px; }
+        .pos-sale-card__time { font-size: 0.75rem; color: var(--color-text-muted); font-family: monospace; }
+        .pos-sale-card__method {
+          font-size: 0.68rem; font-weight: 700; padding: 2px 6px; border-radius: 4px;
+          background: var(--color-primary-light); color: var(--color-primary);
+        }
+        .pos-sale-card__method--cash { background: #dcfce7; color: #16a34a; }
+        .pos-sale-card__method--mpesa { background: #f0fdf4; color: #15803d; }
+        .pos-sale-card__method--tigopesa { background: #fef9c3; color: #854d0e; }
+        .pos-sale-card__method--airtelmoney { background: #fee2e2; color: #dc2626; }
+        .pos-sale-card__method--halopesa { background: #ede9fe; color: #7c3aed; }
+        .pos-sale-card__total { margin-left: auto; font-weight: 800; font-size: 0.9rem; color: var(--color-text); }
+        .pos-sale-card__items { display: flex; flex-wrap: wrap; gap: 4px; }
+        .pos-sale-card__item {
+          font-size: 0.7rem; background: var(--color-bg); border: 1px solid var(--color-border);
+          border-radius: 4px; padding: 2px 6px; color: var(--color-text-secondary);
+        }
 
         /* ── Cart panel ── */
         .pos-cart {

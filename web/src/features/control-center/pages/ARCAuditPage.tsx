@@ -1,5 +1,13 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+
+function downloadCSV(filename: string, headers: string[], rows: (string | number)[][]) {
+  const csv = [headers, ...rows].map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click()
+  URL.revokeObjectURL(url)
+}
 import { ScrollText, Search, RefreshCw, Shield, Download } from 'lucide-react'
 import { supabase } from '@/shared/lib/supabaseClient'
 import { format } from 'date-fns'
@@ -33,7 +41,7 @@ export function ARCAuditPage() {
   const [page, setPage] = useState(0)
   const PAGE_SIZE = 30
 
-  const { data: logs = [], isLoading, refetch } = useQuery({
+  const { data: logs = [], isLoading, isFetching, refetch } = useQuery({
     queryKey: ['arc-audit-logs', search, actionFilter, page],
     queryFn: async () => {
       let q = supabase.from('arc_audit_logs')
@@ -82,12 +90,22 @@ export function ARCAuditPage() {
             display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
             background: d.surface, border: `1px solid ${d.border}`, borderRadius: 10,
             color: d.sub, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-          }}><RefreshCw size={13} /> Refresh</button>
-          <button style={{
+          }}><RefreshCw size={13} style={{ animation: isFetching ? 'arc-spin 0.8s linear infinite' : 'none' }} /> Refresh</button>
+          <button onClick={() => {
+            const rows = logs.map((l: any) => [
+              l.created_at ? new Date(l.created_at).toLocaleString() : '',
+              l.admin_email ?? '', l.admin_role ?? '', l.action ?? '',
+              l.resource_type ?? '', l.resource_name ?? '',
+              l.ip_address ?? '',
+            ])
+            downloadCSV(`audit-logs-${new Date().toISOString().slice(0,10)}.csv`,
+              ['Date/Time', 'Admin Email', 'Role', 'Action', 'Resource Type', 'Resource Name', 'IP Address'], rows)
+          }} style={{
             display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
             background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 10,
             color: '#22c55e', fontSize: 12, fontWeight: 600, cursor: 'pointer',
           }}><Download size={13} /> Export</button>
+          <style>{`@keyframes arc-spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       </div>
 

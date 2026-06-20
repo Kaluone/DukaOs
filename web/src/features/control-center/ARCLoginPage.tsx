@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Shield, AlertCircle, Lock, Mail } from 'lucide-react'
 import { useARCSignIn } from './useARCAuth'
+import { ARCLogo } from './ARCLogo'
 
 export function ARCLoginPage() {
   const navigate = useNavigate()
@@ -37,21 +38,20 @@ export function ARCLoginPage() {
 
       <div style={{ position: 'relative', width: '100%', maxWidth: 420, padding: '24px 20px' }}>
         {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 40 }}>
           <div style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 64, height: 64, borderRadius: 16,
-            background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-            boxShadow: '0 0 40px rgba(59,130,246,0.4)',
-            marginBottom: 16,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
+            filter: 'drop-shadow(0 0 32px rgba(59,130,246,0.35))',
           }}>
-            <Shield size={32} color="#fff" />
-          </div>
-          <div style={{ color: '#f1f5f9', fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em' }}>
-            AutoRevenue Labs
-          </div>
-          <div style={{ color: '#64748b', fontSize: 13, marginTop: 4, letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600 }}>
-            Control Center
+            <ARCLogo size={64} showText={false} />
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ color: '#f1f5f9', fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em' }}>
+                AutoRevenue Labs
+              </div>
+              <div style={{ color: '#3b82f6', fontSize: 11, marginTop: 4, letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 700 }}>
+                Control Center
+              </div>
+            </div>
           </div>
         </div>
 

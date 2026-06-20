@@ -102,7 +102,7 @@ export function ARCGlobalDashboard() {
   const dark = localStorage.getItem('arc-theme') !== 'light'
   const d = D(dark)
 
-  const { data: stats, isLoading, refetch } = useQuery({
+  const { data: stats, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['arc-global-stats'],
     queryFn: async () => {
       const [
@@ -149,7 +149,7 @@ export function ARCGlobalDashboard() {
     refetchInterval: 30_000,
   })
 
-  const { data: recentShops } = useQuery({
+  const { data: recentShops, refetch: refetchShops } = useQuery({
     queryKey: ['arc-recent-shops'],
     queryFn: async () => {
       const { data } = await supabase.from('shops').select('created_at').order('created_at')
@@ -196,13 +196,14 @@ export function ARCGlobalDashboard() {
             Real-time overview of the entire DukaOS platform
           </p>
         </div>
-        <button onClick={() => refetch()} style={{
+        <button onClick={() => { refetch(); refetchShops() }} style={{
           display: 'flex', alignItems: 'center', gap: 6,
           padding: '8px 16px', background: d.surface, border: `1px solid ${d.border}`,
           borderRadius: 10, color: d.sub, fontSize: 13, fontWeight: 600, cursor: 'pointer',
         }}>
-          <RefreshCw size={14} /> Refresh
+          <RefreshCw size={14} style={{ animation: isFetching ? 'arc-spin 0.8s linear infinite' : 'none' }} /> Refresh
         </button>
+        <style>{`@keyframes arc-spin { to { transform: rotate(360deg); } }`}</style>
       </div>
 
       {/* Primary Stats Grid */}

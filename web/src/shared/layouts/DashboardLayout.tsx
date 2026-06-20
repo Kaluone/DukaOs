@@ -5,11 +5,11 @@ import {
   Settings, LogOut, Menu, X, ChevronRight,
   Store, ShoppingBag, Wallet, UserCheck,
   ShoppingCart, Truck, BarChart2, Activity, CreditCard,
-  Bot, Shield, ScrollText, ShieldAlert, GitBranch,
+  Bot, Shield, ScrollText, GitBranch, Lightbulb,
   RotateCcw, CheckSquare, ArrowRightLeft, ClipboardList,
   Tag, Clock, Moon, Sun, BookOpen, Code,
   Star, Percent, Printer, Barcode, Flag, FileBarChart, Heart, Upload,
-  Bell, ArrowUpDown,
+  Bell, ArrowUpDown, UserCog,
 } from 'lucide-react'
 import { signOut } from '@/shared/hooks/useAuth'
 import { useT, useLanguageStore } from '@/shared/i18n/useLanguage'
@@ -18,6 +18,7 @@ import { NotificationBell } from '@/shared/components/NotificationBell'
 import { GlobalSearch } from '@/shared/components/GlobalSearch'
 import { useAuth } from '@/shared/hooks/useAuth'
 import { useShop } from '@/shared/hooks/useShop'
+import { StaffHandoffModal } from '@/features/staff/components/StaffHandoffModal'
 
 interface LayoutProps {
   children: ReactNode
@@ -27,6 +28,7 @@ interface LayoutProps {
 export function DashboardLayout({ children, shopName }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark')
+  const [showHandoff, setShowHandoff] = useState(false)
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
@@ -38,46 +40,81 @@ export function DashboardLayout({ children, shopName }: LayoutProps) {
   const { user } = useAuth()
   const { data: shop } = useShop(user?.id)
 
-  const navItems = [
-    { to: '/dashboard',  label: t('navDashboard'),  icon: LayoutDashboard },
-    { to: '/pos',        label: t('navPOS'),         icon: ShoppingBag, special: true as const },
-    { to: '/products',   label: t('navProducts'),    icon: Package },
-    { to: '/customers',  label: t('navCustomers'),   icon: UserCheck },
-    { to: '/expenses',   label: t('navExpenses'),    icon: Wallet },
-    { to: '/purchases',  label: t('navPurchases'),   icon: ShoppingCart },
-    { to: '/suppliers',  label: t('navSuppliers'),   icon: Truck },
-    { to: '/stock',      label: t('navStock'),       icon: BarChart2 },
-    { to: '/refunds',    label: 'Refunds',           icon: RotateCcw },
-    { to: '/approvals',  label: 'Approvals',         icon: CheckSquare },
-    { to: '/transfers',  label: 'Transfers',         icon: ArrowRightLeft },
-    { to: '/stock-count',label: 'Stock Count',       icon: ClipboardList },
-    { to: '/promotions', label: 'Promotions',        icon: Tag },
-    { to: '/shifts',     label: 'Shifts',            icon: Clock },
-    { to: '/eod',        label: 'End of Day',        icon: Moon },
-    { to: '/accounting', label: 'Accounting',        icon: BookOpen },
-    { to: '/branches',   label: 'Branches',          icon: GitBranch },
-    { to: '/roles',      label: 'Roles',             icon: Shield },
-    { to: '/staff',      label: t('navStaff'),       icon: Users },
-    { to: '/reports',    label: t('navReports'),     icon: FileText },
-    { to: '/ai',         label: t('aiTitle'),        icon: Bot },
-    { to: '/developer',   label: 'Developer API',     icon: Code },
-    { to: '/loyalty',    label: 'Loyalty',           icon: Star },
-    { to: '/tax',        label: 'Tax Rates',         icon: Percent },
-    { to: '/receipt',    label: 'Receipt Designer',  icon: Printer },
-    { to: '/barcodes',   label: 'Barcodes',          icon: Barcode },
-    { to: '/credit',     label: 'Credit & Debt',     icon: CreditCard },
-    { to: '/features',   label: 'Feature Modes',     icon: Flag },
-    { to: '/auto-reports', label: 'Business Reports', icon: FileBarChart },
-    { to: '/health',     label: 'System Health',     icon: Heart },
-    { to: '/import',        label: 'Import Wizard',      icon: Upload },
-    { to: '/demo',          label: 'Demo Mode',          icon: Flag },
-    { to: '/notifications', label: 'Push Notifications', icon: Bell },
-    { to: '/sync',          label: 'Offline Sync',        icon: ArrowUpDown },
-    { to: '/activity',   label: t('activityTitle'),  icon: Activity },
-    { to: '/audit',      label: t('auditTitle'),     icon: ScrollText },
-    { to: '/billing',    label: t('billingTitle'),   icon: CreditCard },
-    { to: '/security',   label: t('securityTitle'),  icon: Shield },
-    { to: '/settings',   label: t('navSettings'),    icon: Settings },
+  const navGroups = [
+    {
+      items: [
+        { to: '/pos', label: t('navPOS'), icon: ShoppingBag, special: true as const },
+      ],
+    },
+    {
+      label: 'Overview',
+      items: [
+        { to: '/dashboard',    label: t('navDashboard'),    icon: LayoutDashboard },
+        { to: '/reports',      label: t('navReports'),      icon: FileText },
+        { to: '/auto-reports', label: 'Business Reports',   icon: FileBarChart },
+        { to: '/insights',     label: 'Insights',           icon: Lightbulb },
+        { to: '/ai',           label: t('aiTitle'),         icon: Bot },
+      ],
+    },
+    {
+      label: 'Sales & Customers',
+      items: [
+        { to: '/customers',  label: t('navCustomers'), icon: UserCheck },
+        { to: '/refunds',    label: 'Refunds',         icon: RotateCcw },
+        { to: '/approvals',  label: 'Approvals',       icon: CheckSquare },
+        { to: '/promotions', label: 'Promotions',      icon: Tag },
+        { to: '/credit',     label: 'Credit & Debt',   icon: CreditCard },
+        { to: '/loyalty',    label: 'Loyalty',         icon: Star },
+      ],
+    },
+    {
+      label: 'Products & Stock',
+      items: [
+        { to: '/products',    label: t('navProducts'),  icon: Package },
+        { to: '/stock',       label: t('navStock'),     icon: BarChart2 },
+        { to: '/stock-count', label: 'Stock Count',     icon: ClipboardList },
+        { to: '/transfers',   label: 'Transfers',       icon: ArrowRightLeft },
+        { to: '/barcodes',    label: 'Barcodes',        icon: Barcode },
+        { to: '/import',      label: 'Import Wizard',   icon: Upload },
+      ],
+    },
+    {
+      label: 'Purchases',
+      items: [
+        { to: '/expenses',  label: t('navExpenses'),  icon: Wallet },
+        { to: '/purchases', label: t('navPurchases'), icon: ShoppingCart },
+        { to: '/suppliers', label: t('navSuppliers'), icon: Truck },
+        { to: '/accounting',label: 'Accounting',      icon: BookOpen },
+        { to: '/tax',       label: 'Tax Rates',       icon: Percent },
+      ],
+    },
+    {
+      label: 'Staff & Operations',
+      items: [
+        { to: '/staff',    label: t('navStaff'),    icon: Users },
+        { to: '/branches', label: 'Branches',        icon: GitBranch },
+        { to: '/roles',    label: 'Roles',           icon: Shield },
+        { to: '/shifts',   label: 'Shifts',          icon: Clock },
+        { to: '/eod',      label: 'End of Day',      icon: Moon },
+      ],
+    },
+    {
+      label: 'Admin & Settings',
+      items: [
+        { to: '/billing',       label: t('billingTitle'),    icon: CreditCard },
+        { to: '/settings',      label: t('navSettings'),     icon: Settings },
+        { to: '/activity',      label: t('activityTitle'),   icon: Activity },
+        { to: '/audit',         label: t('auditTitle'),      icon: ScrollText },
+        { to: '/security',      label: t('securityTitle'),   icon: Shield },
+        { to: '/notifications', label: 'Notifications',      icon: Bell },
+        { to: '/receipt',       label: 'Receipt Designer',   icon: Printer },
+        { to: '/features',      label: 'Feature Modes',      icon: Flag },
+        { to: '/developer',     label: 'Developer API',      icon: Code },
+        { to: '/health',        label: 'System Health',      icon: Heart },
+        { to: '/sync',          label: 'Offline Sync',       icon: ArrowUpDown },
+        { to: '/demo',          label: 'Demo Mode',          icon: Flag },
+      ],
+    },
   ]
 
   const handleSignOut = async () => {
@@ -118,23 +155,40 @@ export function DashboardLayout({ children, shopName }: LayoutProps) {
         </div>
 
         <nav className="sidebar__nav">
-          {navItems.map(({ to, label, icon: Icon, special }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                `sidebar__link ${isActive ? 'sidebar__link--active' : ''} ${special ? 'sidebar__link--pos' : ''}`
-              }
-              onClick={() => setSidebarOpen(false)}
-            >
-              <Icon size={20} aria-hidden="true" />
-              <span>{label}</span>
-              <ChevronRight size={14} className="sidebar__arrow" aria-hidden="true" />
-            </NavLink>
+          {navGroups.map((group, gi) => (
+            <div key={gi} className="sidebar__group">
+              {group.label && <span className="sidebar__group-label">{group.label}</span>}
+              {group.items.map((item) => {
+                const Icon = item.icon
+                const special = 'special' in item ? item.special : false
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className={({ isActive }) =>
+                      `sidebar__link ${isActive ? 'sidebar__link--active' : ''} ${special ? 'sidebar__link--pos' : ''}`
+                    }
+                    onClick={() => setSidebarOpen(false)}
+                  >
+                    <Icon size={18} aria-hidden="true" />
+                    <span>{item.label}</span>
+                    <ChevronRight size={13} className="sidebar__arrow" aria-hidden="true" />
+                  </NavLink>
+                )
+              })}
+            </div>
           ))}
         </nav>
 
         <div className="sidebar__footer">
+          <button
+            className="sidebar__handoff"
+            onClick={() => { setSidebarOpen(false); setShowHandoff(true) }}
+            title="Mkabidhi mfanyakazi — POS tu"
+          >
+            <UserCog size={18} aria-hidden="true" />
+            <span>Mkabidhi Mfanyakazi</span>
+          </button>
           <button className="sidebar__signout" onClick={handleSignOut}>
             <LogOut size={18} aria-hidden="true" />
             <span>{t('navSignOut')}</span>
@@ -187,6 +241,10 @@ export function DashboardLayout({ children, shopName }: LayoutProps) {
           {children}
         </main>
       </div>
+
+      {showHandoff && shop?.id && (
+        <StaffHandoffModal shopId={shop.id} onClose={() => setShowHandoff(false)} />
+      )}
 
       <style>{`
         .layout {
@@ -281,11 +339,29 @@ export function DashboardLayout({ children, shopName }: LayoutProps) {
 
         .sidebar__nav {
           flex: 1;
-          padding: var(--space-4) var(--space-3);
+          padding: var(--space-3) var(--space-3) var(--space-4);
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: 0;
           overflow-y: auto;
+        }
+
+        .sidebar__group {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+          margin-bottom: var(--space-3);
+        }
+
+        .sidebar__group-label {
+          font-size: 0.65rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: var(--color-text-muted);
+          padding: var(--space-2) var(--space-4) var(--space-1);
+          display: block;
+          margin-top: var(--space-1);
         }
 
         .sidebar__link {
@@ -339,6 +415,21 @@ export function DashboardLayout({ children, shopName }: LayoutProps) {
           padding: var(--space-4);
           border-top: 1px solid var(--color-border);
         }
+
+        .sidebar__handoff {
+          display: flex;
+          align-items: center;
+          gap: var(--space-3);
+          width: 100%;
+          padding: var(--space-3) var(--space-4);
+          color: var(--color-primary);
+          font-weight: 600;
+          font-size: 0.9rem;
+          border-radius: var(--radius-m);
+          margin-bottom: var(--space-2);
+          transition: background var(--transition-fast);
+        }
+        .sidebar__handoff:hover { background: var(--color-primary-light); }
 
         .sidebar__signout {
           display: flex;

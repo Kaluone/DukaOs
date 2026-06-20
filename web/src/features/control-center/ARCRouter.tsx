@@ -12,6 +12,7 @@ import { ARCSystemPage } from './pages/ARCSystemPage'
 import { ARCBackupPage } from './pages/ARCBackupPage'
 import { ARCAuditPage } from './pages/ARCAuditPage'
 import { ARCAdminsPage } from './pages/ARCAdminsPage'
+import { ARCBroadcastPage } from './pages/ARCBroadcastPage'
 
 function ARCGuard({ children }: { children: React.ReactNode }) {
   const { data: admin, isLoading } = useARCAdmin()
@@ -60,6 +61,7 @@ export function ARCRouter() {
       <Route path="backup"     element={<ARCGuard><ARCBackupPage /></ARCGuard>} />
       <Route path="audit"      element={<ARCGuard><ARCAuditPage /></ARCGuard>} />
       <Route path="admins"     element={<ARCGuard><ARCAdminsPage /></ARCGuard>} />
+      <Route path="broadcast"  element={<ARCGuard><ARCBroadcastPage /></ARCGuard>} />
 
       {/* Default redirect */}
       <Route path=""  element={<Navigate to="/arc/dashboard" replace />} />
